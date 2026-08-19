@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Usuario {
+  id           Int      @id @default(autoincrement())
+  nome         String
+  email        String   @unique
+  senha        String
+  dataCadastro DateTime @default(now())
+  foto         String?
+
+  mensagensIA      MensagemIA[]
+  agendas          Agenda[]
+  simulados        Simulado[]
+  redacoes         Redacao[]
+  desempenhos      Desempenho[]
+  historicosEstudo HistoricoEstudo[]
+  flashcards       FlashcardUsuario[]
+}
+
+model MensagemIA {
+  id        Int      @id @default(autoincrement())
+  pergunta  String
+  resposta  String
+  dataEnvio DateTime @default(now())
+
+  usuarioId Int
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+}
+
+model Agenda {
+  id          Int      @id @default(autoincrement())
+  titulo      String
+  descricao   String
+  dataEvento  DateTime
+  horaEvento  DateTime
+  cor         String
+
+  usuarioId Int
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+}
+
+model Simulado {
+  id             Int      @id @default(autoincrement())
+  dataRealizacao DateTime
+  comTempo       Boolean
+  tempoTotalMin  Int?
+  notaObjetiva   Float?
+  notaTri        Float?
+
+  usuarioId Int
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  respostas Resposta[]
+}
+
+model Redacao {
+  id        Int      @id @default(autoincrement())
+  tema      String
+  texto     String
+  nota      Float?
+  feedback  String?
+  dataEnvio DateTime @default(now())
+
+  usuarioId Int
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+}
+
+model Desempenho {
+  id             Int      @id @default(autoincrement())
+  dataReferencia DateTime
+  acertos        Int
+  erros          Int
+  notaTri        Float?
+
+  usuarioId Int
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+}
+
+model Materia {
+  id        Int     @id @default(autoincrement())
+  nome      String
+  descricao String
+  cor       String
+  icone     String
+
+  conteudos Conteudo[]
+}
+
+model Conteudo {
+  id          Int      @id @default(autoincrement())
+  titulo      String
+  resumo      String
+  ordem       Int
+  dataCriacao DateTime @default(now())
+
+  materiaId Int
+  materia   Materia @relation(fields: [materiaId], references: [id])
+
+  questoes         Questao[]
+  historicosEstudo HistoricoEstudo[]
+  flashcards       Flashcard[]
+}
+
+model Questao {
+  id          Int     @id @default(autoincrement())
+  enunciado   String
+  dificuldade String
+  area        String
+  ano         String
+
+  conteudoId Int
+  conteudo   Conteudo @relation(fields: [conteudoId], references: [id])
+
+  alternativas Alternativa[]
+  respostas    Resposta[]
+}
+
+model Alternativa {
+  id       Int     @id @default(autoincrement())
+  texto    String
+  correta  Boolean
+  ordem    String
+
+  questaoId Int
+  questao   Questao @relation(fields: [questaoId], references: [id])
+
+  respostas Resposta[]
+}
+
+model Resposta {
+  id            Int      @id @default(autoincrement())
+  dataResposta  DateTime @default(now())
+  correta       Boolean
+
+  simuladoId    Int
+  questaoId     Int
+  alternativaId Int
+
+  simulado    Simulado    @relation(fields: [simuladoId], references: [id])
+  questao     Questao     @relation(fields: [questaoId], references: [id])
+  alternativa Alternativa @relation(fields: [alternativaId], references: [id])
+}
+
+model HistoricoEstudo {
+  id            Int      @id @default(autoincrement())
+  dataConclusao DateTime
+  status        String
+
+  usuarioId  Int
+  conteudoId Int
+
+  usuario  Usuario  @relation(fields: [usuarioId], references: [id])
+  conteudo Conteudo @relation(fields: [conteudoId], references: [id])
+}
+
+model Flashcard {
+  id        Int    @id @default(autoincrement())
+  pergunta  String
+  resposta  String
+  ordem     Int
+
+  conteudoId Int
+  conteudo   Conteudo @relation(fields: [conteudoId], references: [id])
+
+  usuarios FlashcardUsuario[]
+}
+
+model FlashcardUsuario {
+  id           Int      @id @default(autoincrement())
+  dataRevisao  DateTime
+  nivelDominio Int
+
+  usuarioId   Int
+  flashcardId Int
+
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id])
+  flashcard Flashcard  @relation(fields: [flashcardId], references: [id])
+}
