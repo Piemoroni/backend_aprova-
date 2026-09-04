@@ -1,13 +1,13 @@
 const express = require("express");
-
 const router = express.Router();
 
 const { 
+    adicionar, 
     listar, 
     buscar, 
     atualizar, 
-    excluir, 
-    adicionar} = require("../controller/simulado.controller");
+    excluir 
+} = require("../controller/simulado.controller");
 
 router.post("/adicionar", adicionar);
 router.get("/listar", listar);

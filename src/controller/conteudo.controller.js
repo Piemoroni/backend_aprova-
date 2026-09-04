@@ -1,126 +1,67 @@
+const { materiaExiste, conteudoExiste, conteudoDuplicadoNaMateria } = require("../services/conteudo.service");
 const prisma = require("../data/prisma");
-const { conteudoDuplicado, materiaExiste, possuiRelacionamentos} = require("../services/conteudo.service");
 
 const adicionar = async (req, res) => {
+    try {
+        const { titulo, resumo, ordem, materiaId } = req.body || {};
 
-    const { titulo, materiaId } = req.body;
+        if (!titulo || typeof titulo !== "string" || titulo.trim() === "") {
+            return res.status(400).json({
+                erro: "O título do conteúdo é obrigatório."
+            });
+        }
 
+        if (!resumo || typeof resumo !== "string" || resumo.trim() === "") {
+            return res.status(400).json({
+                erro: "O resumo do conteúdo é obrigatório."
+            });
+        }
 
-    const materia = await conteudoService.materiaExiste(materiaId);
+        if (ordem === undefined || ordem === null || isNaN(Number(ordem))) {
+            return res.status(400).json({
+                erro: "A ordem do conteúdo deve ser um número válido."
+            });
+        }
 
-    if (!materia) {
-        return res.status(400).json({
-            mensagem: "A matéria informada não existe."
+        if (!materiaId || isNaN(Number(materiaId))) {
+            return res.status(400).json({
+                erro: "O ID da matéria (materiaId) é obrigatório e deve ser um número."
+            });
+        }
+
+        if (!(await materiaExiste(materiaId))) {
+            return res.status(404).json({
+                erro: "A matéria informada não existe."
+            });
+        }
+
+        if (await conteudoDuplicadoNaMateria(titulo, materiaId)) {
+            return res.status(400).json({
+                erro: "Já existe um conteúdo com este título nesta matéria."
+            });
+        }
+
+        const conteudo = await prisma.conteudo.create({
+            data: {
+                titulo: titulo.trim(),
+                resumo: resumo.trim(),
+                ordem: Number(ordem),
+                materiaId: Number(materiaId)
+            }
+        });
+
+        return res.status(201).json({
+            mensagem: "Conteúdo cadastrado com sucesso!",
+            conteudo
+        });
+    } catch (erro) {
+        console.error("ERRO DETALHADO AO CADASTRAR CONTEÚDO:", erro);
+        return res.status(500).json({
+            erro: "Erro interno no servidor ao cadastrar conteúdo."
         });
     }
-
-
-    const duplicado = await conteudoService.conteudoDuplicado(
-        titulo,
-        materiaId
-    );
-
-
-    if (duplicado) {
-        return res.status(400).json({
-            mensagem: "Esse conteúdo já está cadastrado nessa matéria."
-        });
-    }
-
-
-    const conteudo = await prisma.conteudo.create({
-        data: req.body,
-        include: {
-            materia: true
-        }
-    });
-
-
-    res.status(201).json({
-        mensagem: "Conteúdo cadastrado com sucesso!",
-        conteudo
-    });
-};
-
-const listar = async (req, res) => {
-
-    const conteudos = await prisma.conteudo.findMany({
-        include: {
-            materia: true
-        }
-    });
-
-    res.status(200).json(conteudos);
-};
-
-const buscar = async (req, res) => {
-
-    const { id } = req.params;
-
-    const conteudo = await prisma.conteudo.findUnique({
-        where: {
-            id: Number(id)
-        },
-        include: {
-            materia: true,
-            questoes: true,
-            flashcards: true
-        }
-    });
-
-    res.status(200).json(conteudo);
-};
-
-const atualizar = async (req, res) => {
-
-    const { id } = req.params;
-
-    const conteudo = await prisma.conteudo.update({
-        where: {
-            id: Number(id)
-        },
-        data: req.body
-    });
-
-    res.status(200).json({
-        mensagem: "Conteúdo atualizado com sucesso!",
-        conteudo
-    });
-};
-
-const excluir = async (req, res) => {
-
-    const { id } = req.params;
-
-
-    const possuiRelacionamentos = await conteudoService.possuiRelacionamentos(id);
-
-
-    if (possuiRelacionamentos) {
-        return res.status(400).json({
-            mensagem: "Não é possível excluir esse conteúdo, pois ele possui questões ou flashcards vinculados."
-        });
-    }
-
-
-    const conteudo = await prisma.conteudo.delete({
-        where: {
-            id: Number(id)
-        }
-    });
-
-
-    res.status(200).json({
-        mensagem: "Conteúdo excluído com sucesso!",
-        conteudo
-    });
-
 };
 
 module.exports = {
-    adicionar,
-    listar,
-    buscar,
-    atualizar,
-    excluir
+    adicionar
 };

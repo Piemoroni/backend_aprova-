@@ -1,57 +1,35 @@
 const prisma = require("../data/prisma");
 
-
-// Verifica se já existe uma matéria com o mesmo nome
-const materiaDuplicada = async (nome) => {
-
+const materiaDuplicada = async (nome, idAtual = null) => {
     const materia = await prisma.materia.findFirst({
         where: {
-            nome
+            nome: nome.trim(),
+            ...(idAtual && { NOT: { id: Number(idAtual) } })
         }
     });
-
-    return materia != null;
+    return !!materia;
 };
 
-
-
-// Verifica se os dados obrigatórios foram preenchidos
-const validarMateria = (nome, descricao, cor, icone) => {
-
-    if (!nome || !descricao || !cor || !icone) {
-        return false;
-    }
-
-    return true;
-};
-
-
-
-// Verifica se a matéria possui conteúdos vinculados
-const possuiConteudos = async (materiaId) => {
-
+const materiaExiste = async (id) => {
     const materia = await prisma.materia.findUnique({
         where: {
-            id: Number(materiaId)
-        },
-        include: {
-            conteudos: true
+            id: Number(id)
         }
     });
-
-
-    if (!materia) {
-        return false;
-    }
-
-
-    return materia.conteudos.length > 0;
+    return !!materia;
 };
 
-
+const possuiConteudos = async (id) => {
+    const total = await prisma.conteudo.count({
+        where: {
+            materiaId: Number(id)
+        }
+    });
+    return total > 0;
+};
 
 module.exports = {
     materiaDuplicada,
-    validarMateria,
+    materiaExiste,
     possuiConteudos
 };

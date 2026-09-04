@@ -1,17 +1,15 @@
 const express = require("express");
-
 const router = express.Router();
 
 const { 
-    listar, 
-    buscar, 
+    adicionar, 
+    listarPorQuestao, 
     atualizar, 
-    excluir, 
-    adicionar} = require("../controller/redacao.controller");
+    excluir 
+} = require("../controller/alternativa.controller");
 
 router.post("/adicionar", adicionar);
-router.get("/listar", listar);
-router.get("/buscar/:id", buscar);
+router.get("/listar/:questaoId", listarPorQuestao);
 router.put("/atualizar/:id", atualizar);
 router.delete("/excluir/:id", excluir);
 

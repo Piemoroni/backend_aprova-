@@ -1,18 +1,10 @@
 const express = require("express");
-
 const router = express.Router();
 
 const { 
-    listar, 
-    buscar, 
-    atualizar, 
-    excluir, 
-    adicionar} = require("../controller/conteudo.controller");
+    adicionar
+} = require("../controller/conteudo.controller");
 
-router.post("/adicionar", adicionar);
-router.get("/listar", listar);
-router.get("/buscar/:id", buscar);
-router.put("/atualizar/:id", atualizar);
-router.delete("/excluir/:id", excluir);
+router.post("/adicionar", adicionar); 
 
 module.exports = router;

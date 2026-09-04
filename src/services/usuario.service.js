@@ -1,80 +1,54 @@
 const prisma = require("../data/prisma");
+const crypto = require("crypto");
 
-
-// Verifica se o e-mail já está cadastrado
 const emailDuplicado = async (email) => {
-
     const usuario = await prisma.usuario.findUnique({
-        where: {
-            email
-        }
+        where: { email }
     });
-
     return usuario != null;
 };
 
-
-
-// Valida formato do e-mail
 const validarEmail = (email) => {
-
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
     return regex.test(email);
 };
 
-
-
-// Valida tamanho da senha
 const validarSenha = (senha) => {
-
-    if (!senha || senha.length < 6) {
-        return false;
-    }
-
-    return true;
+    return senha && senha.length >= 6;
 };
 
+const gerarHashSenha = (senha) => {
+    return crypto.createHash("sha256").update(senha).digest("hex");
+};
 
+const compararSenha = (senhaDigitada, senhaHash) => {
+    const hashDigitado = gerarHashSenha(senhaDigitada);
+    return hashDigitado === senhaHash;
+};
 
-// Verifica se o usuário possui dados vinculados
 const possuiDados = async (usuarioId) => {
-
     const usuario = await prisma.usuario.findUnique({
         where: {
             id: Number(usuarioId)
         },
         include: {
             simulados: true,
-            redacoes: true,
-            agendas: true,
-            mensagensIA: true,
-            desempenhos: true,
-            historicosEstudo: true
+            flashcards: true
         }
     });
-
 
     if (!usuario) {
         return false;
     }
 
-
-    return (
-        usuario.simulados.length > 0 ||
-        usuario.redacoes.length > 0 ||
-        usuario.agendas.length > 0 ||
-        usuario.mensagensIA.length > 0 ||
-        usuario.desempenhos.length > 0 ||
-        usuario.historicosEstudo.length > 0
-    );
+    return usuario.simulados.length > 0 || usuario.flashcards.length > 0;
 };
-
-
 
 module.exports = {
     emailDuplicado,
     validarEmail,
     validarSenha,
+    gerarHashSenha,
+    compararSenha,
     possuiDados
 };

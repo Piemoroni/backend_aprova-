@@ -1,104 +1,70 @@
+const { flashcardDuplicado, conteudoExiste, validarOrdem, possuiUsuarios } = require("../services/flashcard.service");
 const prisma = require("../data/prisma");
-const { flashcardDuplicado, conteudoExiste, validarOrdem, possuiUsuarios} = require("../services/flashcard.service");
 
 const adicionar = async (req, res) => {
-
     const { pergunta, conteudoId, ordem } = req.body;
 
-
-    const conteudo = await flashcardService.conteudoExiste(conteudoId);
-
-    if (!conteudo) {
+    if (!validarOrdem(ordem)) {
         return res.status(400).json({
-            mensagem: "O conteúdo informado não existe."
+            erro: "A ordem do flashcard deve ser maior que zero."
         });
     }
 
-
-    const duplicado = await flashcardService.flashcardDuplicado(
-        pergunta,
-        conteudoId
-    );
-
-
-    if (duplicado) {
-        return res.status(400).json({
-            mensagem: "Esse flashcard já está cadastrado nesse conteúdo."
+    if (!(await conteudoExiste(conteudoId))) {
+        return res.status(404).json({
+            erro: "O conteúdo informado não existe."
         });
     }
 
-
-    const ordemValida = flashcardService.validarOrdem(ordem);
-
-
-    if (!ordemValida) {
+    if (await flashcardDuplicado(pergunta, conteudoId)) {
         return res.status(400).json({
-            mensagem: "A ordem do flashcard deve ser maior que zero."
+            erro: "Já existe um flashcard com esta pergunta para este conteúdo."
         });
     }
-
 
     const flashcard = await prisma.flashcard.create({
-        data: req.body,
-        include: {
-            conteudo: true
-        }
+        data: req.body
     });
-
 
     res.status(201).json({
-        mensagem: "Flashcard cadastrado com sucesso!",
+        mensagem: "Flashcard adicionado com sucesso!",
         flashcard
     });
-
 };
 
-
-
-// Listar flashcards
 const listar = async (req, res) => {
-
     const flashcards = await prisma.flashcard.findMany({
         include: {
             conteudo: true
         }
     });
 
-
     res.status(200).json(flashcards);
-
 };
 
-
-
-// Buscar flashcard
 const buscar = async (req, res) => {
-
     const { id } = req.params;
-
 
     const flashcard = await prisma.flashcard.findUnique({
         where: {
             id: Number(id)
         },
         include: {
-            conteudo: true,
-            usuarios: true
+            conteudo: true
         }
     });
 
+    if (!flashcard) {
+        return res.status(404).json({
+            erro: "Flashcard não encontrado."
+        });
+    }
 
     res.status(200).json(flashcard);
-
 };
 
-
-
-// Atualizar flashcard
 const atualizar = async (req, res) => {
-
     const { id } = req.params;
-
 
     const flashcard = await prisma.flashcard.update({
         where: {
@@ -107,31 +73,17 @@ const atualizar = async (req, res) => {
         data: req.body
     });
 
-
-    res.status(200).json({
-        mensagem: "Flashcard atualizado com sucesso!",
-        flashcard
-    });
-
+    res.status(200).json(flashcard);
 };
 
-
-
-// Excluir flashcard
 const excluir = async (req, res) => {
-
     const { id } = req.params;
 
-
-    const possuiUsuarios = await flashcardService.possuiUsuarios(id);
-
-
-    if (possuiUsuarios) {
+    if (await possuiUsuarios(id)) {
         return res.status(400).json({
-            mensagem: "Não é possível excluir esse flashcard, pois ele possui revisões de usuários."
+            erro: "Não é possível excluir o flashcard pois existem usuários vinculados."
         });
     }
-
 
     const flashcard = await prisma.flashcard.delete({
         where: {
@@ -139,16 +91,11 @@ const excluir = async (req, res) => {
         }
     });
 
-
     res.status(200).json({
-        mensagem: "Flashcard excluído com sucesso!",
+        mensagem: "Flashcard removido com sucesso!",
         flashcard
     });
-
 };
-
-
-
 
 module.exports = {
     adicionar,
