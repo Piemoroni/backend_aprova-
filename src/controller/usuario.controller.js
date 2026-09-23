@@ -1,5 +1,6 @@
 const prisma = require("../data/prisma");
 const jwt = require("jsonwebtoken");
+const usuarioService = require("../services/usuario.service");
 
 const SECRET_KEY = process.env.JWT_SECRET || "sua_chave_secreta_aqui";
 
@@ -13,26 +14,48 @@ const adicionar = async (req, res) => {
             });
         }
 
-        const usuarioExiste = await prisma.usuario.findUnique({
-            where: { email }
-        });
+        if (!usuarioService.validarEmail(email)) {
+            return res.status(400).json({
+                erro: "Formato de e-mail inválido."
+            });
+        }
 
-        if (usuarioExiste) {
+        if (!usuarioService.validarSenha(senha)) {
+            return res.status(400).json({
+                erro: "A senha deve ter no mínimo 6 caracteres."
+            });
+        }
+
+        if (tipo && !usuarioService.validarTipo(tipo)) {
+            return res.status(400).json({
+                erro: "Tipo de usuário inválido. Escolha entre ALUNO, PROFESSOR ou ADMIN."
+            });
+        }
+
+        const existeEmail = await usuarioService.emailDuplicado(email);
+        if (existeEmail) {
             return res.status(400).json({
                 erro: "Já existe um usuário cadastrado com este e-mail."
             });
         }
 
+        const senhaHash = await usuarioService.gerarHashSenha(senha);
+
         const novoUsuario = await prisma.usuario.create({
             data: {
                 nome,
                 email,
-                senha,
+                senha: senhaHash,
                 tipo: tipo ? tipo.toUpperCase() : "ALUNO"
+            },
+            select: {
+                id: true,
+                nome: true,
+                email: true,
+                tipo: true,
+                dataCadastro: true
             }
         });
-
-        delete novoUsuario.senha;
 
         return res.status(201).json({
             mensagem: "Usuário cadastrado com sucesso!",
@@ -60,7 +83,16 @@ const login = async (req, res) => {
             where: { email }
         });
 
-        if (!usuario || usuario.senha !== senha) {
+        if (!usuario) {
+            return res.status(401).json({
+                erro: "E-mail ou senha incorretos."
+            });
+        }
+
+        // Compara a senha informada usando o service (bcrypt)
+        const senhaValida = await usuarioService.compararSenha(senha, usuario.senha);
+
+        if (!senhaValida) {
             return res.status(401).json({
                 erro: "E-mail ou senha incorretos."
             });
@@ -76,11 +108,11 @@ const login = async (req, res) => {
             { expiresIn: "8h" }
         );
 
-        delete usuario.senha;
+        const { senha: _, ...usuarioSemSenha } = usuario;
 
         return res.status(200).json({
             mensagem: "Login realizado com sucesso!",
-            usuario,
+            usuario: usuarioSemSenha,
             token
         });
     } catch (erro) {
@@ -115,10 +147,17 @@ const listar = async (req, res) => {
 const buscar = async (req, res) => {
     try {
         const { id } = req.params;
+        const usuarioLogado = req.usuario;
 
         if (isNaN(Number(id))) {
             return res.status(400).json({
                 erro: "ID de usuário inválido."
+            });
+        }
+
+        if (usuarioLogado.tipo !== "ADMIN" && usuarioLogado.id !== Number(id)) {
+            return res.status(403).json({
+                erro: "Você não tem permissão para acessar os dados deste usuário."
             });
         }
 
@@ -152,10 +191,17 @@ const atualizar = async (req, res) => {
     try {
         const { id } = req.params;
         const { nome, email, senha, tipo } = req.body;
+        const usuarioLogado = req.usuario;
 
         if (isNaN(Number(id))) {
             return res.status(400).json({
                 erro: "ID de usuário inválido."
+            });
+        }
+
+        if (usuarioLogado.tipo !== "ADMIN" && usuarioLogado.id !== Number(id)) {
+            return res.status(403).json({
+                erro: "Você não tem permissão para atualizar este usuário."
             });
         }
 
@@ -170,10 +216,37 @@ const atualizar = async (req, res) => {
         }
 
         const dadosAtualizacao = {};
+
         if (nome) dadosAtualizacao.nome = nome;
-        if (email) dadosAtualizacao.email = email;
-        if (senha) dadosAtualizacao.senha = senha;
-        if (tipo) dadosAtualizacao.tipo = tipo.toUpperCase();
+
+        if (email) {
+            if (!usuarioService.validarEmail(email)) {
+                return res.status(400).json({ erro: "Formato de e-mail inválido." });
+            }
+            if (email !== usuarioExiste.email && await usuarioService.emailDuplicado(email)) {
+                return res.status(400).json({ erro: "E-mail já está em uso por outro usuário." });
+            }
+            dadosAtualizacao.email = email;
+        }
+
+        if (senha) {
+            if (!usuarioService.validarSenha(senha)) {
+                return res.status(400).json({ erro: "A senha deve ter no mínimo 6 caracteres." });
+            }
+            dadosAtualizacao.senha = await usuarioService.gerarHashSenha(senha);
+        }
+
+        if (tipo) {
+            if (usuarioLogado.tipo !== "ADMIN") {
+                return res.status(403).json({
+                    erro: "Apenas administradores podem alterar o tipo de usuário."
+                });
+            }
+            if (!usuarioService.validarTipo(tipo)) {
+                return res.status(400).json({ erro: "Tipo de usuário inválido." });
+            }
+            dadosAtualizacao.tipo = tipo.toUpperCase();
+        }
 
         const usuarioAtualizado = await prisma.usuario.update({
             where: { id: Number(id) },
@@ -216,6 +289,14 @@ const excluir = async (req, res) => {
         if (!usuarioExiste) {
             return res.status(404).json({
                 erro: "Usuário não encontrado."
+            });
+        }
+
+        // Verifica no service se o usuário possui dados vinculados (simulados/flashcards)
+        const temDados = await usuarioService.possuiDados(id);
+        if (temDados) {
+            return res.status(400).json({
+                erro: "Não é possível excluir o usuário pois ele possui simulados ou flashcards vinculados."
             });
         }
 

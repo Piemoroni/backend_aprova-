@@ -1,6 +1,8 @@
 const prisma = require("../data/prisma");
 
 const usuarioExiste = async (usuarioId) => {
+    if (!usuarioId || isNaN(Number(usuarioId))) return false;
+
     const usuario = await prisma.usuario.findUnique({
         where: { id: Number(usuarioId) }
     });
@@ -8,6 +10,8 @@ const usuarioExiste = async (usuarioId) => {
 };
 
 const questaoExiste = async (questaoId) => {
+    if (!questaoId || isNaN(Number(questaoId))) return false;
+
     const questao = await prisma.questao.findUnique({
         where: { id: Number(questaoId) }
     });
@@ -15,6 +19,8 @@ const questaoExiste = async (questaoId) => {
 };
 
 const alternativaExiste = async (alternativaId) => {
+    if (!alternativaId || isNaN(Number(alternativaId))) return false;
+
     const alternativa = await prisma.alternativa.findUnique({
         where: { id: Number(alternativaId) }
     });
@@ -22,6 +28,8 @@ const alternativaExiste = async (alternativaId) => {
 };
 
 const simuladoExiste = async (simuladoId) => {
+    if (!simuladoId || isNaN(Number(simuladoId))) return false;
+
     const simulado = await prisma.simulado.findUnique({
         where: { id: Number(simuladoId) }
     });
@@ -29,6 +37,8 @@ const simuladoExiste = async (simuladoId) => {
 };
 
 const respostaDuplicada = async (simuladoId, questaoId) => {
+    if (!simuladoId || !questaoId || isNaN(Number(simuladoId)) || isNaN(Number(questaoId))) return false;
+
     const resposta = await prisma.resposta.findFirst({
         where: {
             simuladoId: Number(simuladoId),
@@ -39,10 +49,25 @@ const respostaDuplicada = async (simuladoId, questaoId) => {
 };
 
 const verificarAlternativaCorreta = async (alternativaId) => {
+    if (!alternativaId || isNaN(Number(alternativaId))) return false;
+
     const alternativa = await prisma.alternativa.findUnique({
         where: { id: Number(alternativaId) }
     });
-    return alternativa ? alternativa.correta : false;
+    return alternativa ? Boolean(alternativa.correta) : false;
+};
+
+const alternativaPertenceAQuestao = async (alternativaId, questaoId) => {
+    if (!alternativaId || !questaoId || isNaN(Number(alternativaId)) || isNaN(Number(questaoId))) return false;
+
+    const alternativa = await prisma.alternativa.findFirst({
+        where: {
+            id: Number(alternativaId),
+            questaoId: Number(questaoId)
+        }
+    });
+
+    return alternativa != null;
 };
 
 module.exports = {
@@ -51,5 +76,6 @@ module.exports = {
     alternativaExiste,
     simuladoExiste,
     respostaDuplicada,
-    verificarAlternativaCorreta
+    verificarAlternativaCorreta,
+    alternativaPertenceAQuestao
 };

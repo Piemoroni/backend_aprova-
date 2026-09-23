@@ -58,6 +58,12 @@ const buscar = async (req, res) => {
     try {
         const { id } = req.params;
 
+        if (isNaN(Number(id))) {
+            return res.status(400).json({
+                erro: "ID de matéria inválido."
+            });
+        }
+
         const materia = await prisma.materia.findUnique({
             where: {
                 id: Number(id)
@@ -84,7 +90,7 @@ const atualizar = async (req, res) => {
         const { id } = req.params;
         const { nome, descricao } = req.body || {};
 
-        if (!(await materiaExiste(id))) {
+        if (isNaN(Number(id)) || !(await materiaExiste(id))) {
             return res.status(404).json({
                 erro: "Matéria não encontrada."
             });
@@ -141,7 +147,7 @@ const excluir = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (!(await materiaExiste(id))) {
+        if (isNaN(Number(id)) || !(await materiaExiste(id))) {
             return res.status(404).json({
                 erro: "Matéria não encontrada."
             });

@@ -1,4 +1,4 @@
-const {questaoExiste, alternativaExiste, possuiRespostas} = require("../services/alternativa.service");
+const { questaoExiste, alternativaExiste, possuiRespostas,ordemDuplicadaNaQuestao,questaoJaTemCorreta} = require("../services/alternativa.service");
 const prisma = require("../data/prisma");
 
 const adicionar = async (req, res) => {
@@ -25,7 +25,7 @@ const adicionar = async (req, res) => {
 
         if (!questaoId || isNaN(Number(questaoId))) {
             return res.status(400).json({
-                erro: "O ID da questão (questaoId) é obrigatório e deve ser um número."
+                erro: "O ID da questão (questaoId) é obrigatório e deve ser um número válido."
             });
         }
 
@@ -35,11 +35,25 @@ const adicionar = async (req, res) => {
             });
         }
 
+        const ordemFormatada = ordem.trim().toUpperCase();
+
+        if (await ordemDuplicadaNaQuestao(ordemFormatada, questaoId)) {
+            return res.status(400).json({
+                erro: `Já existe uma alternativa marcada como '${ordemFormatada}' nesta questão.`
+            });
+        }
+
+        if (correta && (await questaoJaTemCorreta(questaoId))) {
+            return res.status(400).json({
+                erro: "Esta questão já possui uma alternativa marcada como correta."
+            });
+        }
+
         const alternativa = await prisma.alternativa.create({
             data: {
                 texto: texto.trim(),
                 correta,
-                ordem: ordem.trim(),
+                ordem: ordemFormatada,
                 questaoId: Number(questaoId)
             }
         });
@@ -75,6 +89,9 @@ const listarPorQuestao = async (req, res) => {
         const alternativas = await prisma.alternativa.findMany({
             where: {
                 questaoId: Number(questaoId)
+            },
+            orderBy: {
+                ordem: "asc"
             }
         });
 
@@ -90,33 +107,25 @@ const listarPorQuestao = async (req, res) => {
 const atualizar = async (req, res) => {
     try {
         const { id } = req.params;
-        const { texto, correta, questaoId } = req.body || {};
+        const { texto, correta, ordem, questaoId } = req.body || {};
 
-        if (!(await alternativaExiste(id))) {
+        if (isNaN(Number(id))) {
+            return res.status(400).json({
+                erro: "O ID da alternativa deve ser um número válido."
+            });
+        }
+
+        const alternativaExistente = await prisma.alternativa.findUnique({
+            where: { id: Number(id) }
+        });
+
+        if (!alternativaExistente) {
             return res.status(404).json({
                 erro: "Alternativa não encontrada."
             });
         }
 
-        const dadosAtualizacao = {};
-
-        if (texto !== undefined) {
-            if (typeof texto !== "string" || texto.trim() === "") {
-                return res.status(400).json({
-                    erro: "O texto da alternativa não pode ser vazio."
-                });
-            }
-            dadosAtualizacao.texto = texto.trim();
-        }
-
-        if (correta !== undefined) {
-            if (typeof correta !== "boolean") {
-                return res.status(400).json({
-                    erro: "O campo 'correta' deve ser um valor booleano (true ou false)."
-                });
-            }
-            dadosAtualizacao.correta = correta;
-        }
+        const targetQuestaoId = questaoId !== undefined ? Number(questaoId) : alternativaExistente.questaoId;
 
         if (questaoId !== undefined) {
             if (isNaN(Number(questaoId))) {
@@ -130,6 +139,54 @@ const atualizar = async (req, res) => {
                     erro: "A questão informada não existe."
                 });
             }
+        }
+
+        const dadosAtualizacao = {};
+
+        if (texto !== undefined) {
+            if (typeof texto !== "string" || texto.trim() === "") {
+                return res.status(400).json({
+                    erro: "O texto da alternativa não pode ser vazio."
+                });
+            }
+            dadosAtualizacao.texto = texto.trim();
+        }
+
+        if (ordem !== undefined) {
+            if (typeof ordem !== "string" || ordem.trim() === "") {
+                return res.status(400).json({
+                    erro: "A ordem da alternativa deve ser um texto válido (ex: 'A', 'B')."
+                });
+            }
+
+            const ordemFormatada = ordem.trim().toUpperCase();
+
+            if (await ordemDuplicadaNaQuestao(ordemFormatada, targetQuestaoId, id)) {
+                return res.status(400).json({
+                    erro: `Já existe uma alternativa marcada como '${ordemFormatada}' nesta questão.`
+                });
+            }
+
+            dadosAtualizacao.ordem = ordemFormatada;
+        }
+
+        if (correta !== undefined) {
+            if (typeof correta !== "boolean") {
+                return res.status(400).json({
+                    erro: "O campo 'correta' deve ser um valor booleano (true ou false)."
+                });
+            }
+
+            if (correta && (await questaoJaTemCorreta(targetQuestaoId, id))) {
+                return res.status(400).json({
+                    erro: "Esta questão já possui outra alternativa marcada como correta."
+                });
+            }
+
+            dadosAtualizacao.correta = correta;
+        }
+
+        if (questaoId !== undefined) {
             dadosAtualizacao.questaoId = Number(questaoId);
         }
 
@@ -155,6 +212,12 @@ const atualizar = async (req, res) => {
 const excluir = async (req, res) => {
     try {
         const { id } = req.params;
+
+        if (isNaN(Number(id))) {
+            return res.status(400).json({
+                erro: "O ID da alternativa deve ser um número válido."
+            });
+        }
 
         if (!(await alternativaExiste(id))) {
             return res.status(404).json({

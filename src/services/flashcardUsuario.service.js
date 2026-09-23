@@ -1,6 +1,8 @@
 const prisma = require("../data/prisma");
 
 const usuarioExiste = async (usuarioId) => {
+    if (!usuarioId || isNaN(Number(usuarioId))) return false;
+
     const usuario = await prisma.usuario.findUnique({
         where: { id: Number(usuarioId) }
     });
@@ -8,6 +10,8 @@ const usuarioExiste = async (usuarioId) => {
 };
 
 const flashcardExiste = async (flashcardId) => {
+    if (!flashcardId || isNaN(Number(flashcardId))) return false;
+
     const flashcard = await prisma.flashcard.findUnique({
         where: { id: Number(flashcardId) }
     });
@@ -19,10 +23,13 @@ const validarNivelDominio = (nivel) => {
         return false;
     }
     const num = Number(nivel);
-    return num >= 1 && num <= 5;
+    // Garante que é um número inteiro entre 1 e 5
+    return Number.isInteger(num) && num >= 1 && num <= 5;
 };
 
 const buscarPorUsuario = async (usuarioId) => {
+    if (!usuarioId || isNaN(Number(usuarioId))) return [];
+
     return await prisma.flashcardUsuario.findMany({
         where: {
             usuarioId: Number(usuarioId)
@@ -34,12 +41,16 @@ const buscarPorUsuario = async (usuarioId) => {
 };
 
 const buscarPorId = async (id) => {
+    if (!id || isNaN(Number(id))) return null;
+
     return await prisma.flashcardUsuario.findUnique({
         where: {
             id: Number(id)
         },
         include: {
-            usuario: true,
+            usuario: {
+                select: { id: true, nome: true, email: true } 
+            },
             flashcard: true
         }
     });

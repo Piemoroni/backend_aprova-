@@ -1,4 +1,4 @@
-const { conteudoExiste, questaoExiste, possuiAlternativas, possuiRespostas} = require("../services/questao.service");
+const { conteudoExiste, questaoExiste, possuiAlternativas, possuiRespostas } = require("../services/questao.service");
 const prisma = require("../data/prisma");
 
 const adicionar = async (req, res) => {
@@ -88,6 +88,12 @@ const buscar = async (req, res) => {
     try {
         const { id } = req.params;
 
+        if (isNaN(Number(id))) {
+            return res.status(400).json({
+                erro: "ID de questão inválido."
+            });
+        }
+
         const questao = await prisma.questao.findUnique({
             where: {
                 id: Number(id)
@@ -118,7 +124,7 @@ const atualizar = async (req, res) => {
         const { id } = req.params;
         const { enunciado, dificuldade, area, ano, conteudoId } = req.body || {};
 
-        if (!(await questaoExiste(id))) {
+        if (isNaN(Number(id)) || !(await questaoExiste(id))) {
             return res.status(404).json({
                 erro: "Questão não encontrada."
             });
@@ -200,7 +206,7 @@ const excluir = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (!(await questaoExiste(id))) {
+        if (isNaN(Number(id)) || !(await questaoExiste(id))) {
             return res.status(404).json({
                 erro: "Questão não encontrada."
             });

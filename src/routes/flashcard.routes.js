@@ -10,10 +10,11 @@ const {
     excluir 
 } = require("../controller/flashcard.controller");
 
-router.post("/adicionar", autenticarToken, autorizarNivel("ADMIN"), adicionar);
 router.get("/listar", autenticarToken, listar);
 router.get("/buscar/:id", autenticarToken, buscar);
-router.put("/atualizar/:id", autenticarToken, autorizarNivel("ADMIN"), atualizar);
-router.delete("/excluir/:id", autenticarToken, autorizarNivel("ADMIN"), excluir);
+
+router.post("/adicionar", autenticarToken, autorizarNivel("ADMIN", "PROFESSOR"), adicionar);
+router.put("/atualizar/:id", autenticarToken, autorizarNivel("ADMIN", "PROFESSOR"), atualizar);
+router.delete("/excluir/:id", autenticarToken, autorizarNivel("ADMIN", "PROFESSOR"), excluir);
 
 module.exports = router;

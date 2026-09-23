@@ -1,5 +1,5 @@
 const prisma = require("../data/prisma");
-const crypto = require("crypto");
+const bcrypt = require("bcrypt");
 
 const emailDuplicado = async (email) => {
     const usuario = await prisma.usuario.findUnique({
@@ -17,13 +17,18 @@ const validarSenha = (senha) => {
     return senha && senha.length >= 6;
 };
 
-const gerarHashSenha = (senha) => {
-    return crypto.createHash("sha256").update(senha).digest("hex");
+const validarTipo = (tipo) => {
+    const tiposPermitidos = ["ALUNO", "PROFESSOR", "ADMIN"];
+    return tipo ? tiposPermitidos.includes(tipo.toUpperCase()) : true;
 };
 
-const compararSenha = (senhaDigitada, senhaHash) => {
-    const hashDigitado = gerarHashSenha(senhaDigitada);
-    return hashDigitado === senhaHash;
+const gerarHashSenha = async (senha) => {
+    const SALTS = 10;
+    return await bcrypt.hash(senha, SALTS);
+};
+
+const compararSenha = async (senhaDigitada, senhaHash) => {
+    return await bcrypt.compare(senhaDigitada, senhaHash);
 };
 
 const possuiDados = async (usuarioId) => {
@@ -48,6 +53,7 @@ module.exports = {
     emailDuplicado,
     validarEmail,
     validarSenha,
+    validarTipo,
     gerarHashSenha,
     compararSenha,
     possuiDados

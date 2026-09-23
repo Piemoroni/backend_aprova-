@@ -9,20 +9,36 @@ const prisma = require("../data/prisma");
 
 const adicionar = async (req, res) => {
     try {
-        const { usuarioId, flashcardId, dataRevisao, nivelDominio, nivelFacilidade } = req.body;
+        const { usuarioId, flashcardId, dataRevisao, nivelDominio, nivelFacilidade } = req.body || {};
 
-        const nivel = nivelDominio !== undefined ? nivelDominio : nivelFacilidade;
-
-        if (!usuarioId || !flashcardId) {
+        if (!usuarioId || isNaN(Number(usuarioId))) {
             return res.status(400).json({
-                erro: "Os campos usuarioId e flashcardId são obrigatórios."
+                erro: "ID de usuário inválido ou não fornecido."
             });
         }
 
+        if (!flashcardId || isNaN(Number(flashcardId))) {
+            return res.status(400).json({
+                erro: "ID de flashcard inválido ou não fornecido."
+            });
+        }
+
+        const nivel = nivelDominio !== undefined ? nivelDominio : nivelFacilidade;
+
         if (!validarNivelDominio(nivel)) {
             return res.status(400).json({
-                erro: "O nível de facilidade é obrigatório e deve ser um número entre 1 e 5."
+                erro: "O nível de domínio/facilidade é obrigatório e deve ser um número inteiro de 1 a 5."
             });
+        }
+        
+        let dataFinal = new Date();
+        if (dataRevisao) {
+            dataFinal = new Date(dataRevisao);
+            if (isNaN(dataFinal.getTime())) {
+                return res.status(400).json({
+                    erro: "Formato de dataRevisao inválido."
+                });
+            }
         }
 
         if (!(await usuarioExiste(usuarioId))) {
@@ -42,7 +58,7 @@ const adicionar = async (req, res) => {
                 usuarioId: Number(usuarioId),
                 flashcardId: Number(flashcardId),
                 nivelDominio: Number(nivel),
-                dataRevisao: dataRevisao ? new Date(dataRevisao) : new Date()
+                dataRevisao: dataFinal
             }
         });
 
@@ -51,7 +67,7 @@ const adicionar = async (req, res) => {
             registro
         });
     } catch (erro) {
-        console.error("Erro ao adicionar revisão:", erro);
+        console.error("ERRO AO ADICIONAR REVISÃO:", erro);
         return res.status(500).json({
             erro: "Erro interno no servidor ao registrar revisão."
         });
@@ -63,25 +79,34 @@ const listar = async (req, res) => {
         const { usuarioId } = req.query;
 
         if (usuarioId) {
+            if (isNaN(Number(usuarioId))) {
+                return res.status(400).json({
+                    erro: "ID de usuário inválido."
+                });
+            }
+
             if (!(await usuarioExiste(usuarioId))) {
                 return res.status(404).json({
                     erro: "Usuário não encontrado."
                 });
             }
+
             const revisoes = await buscarPorUsuario(usuarioId);
             return res.status(200).json(revisoes);
         }
 
         const revisoes = await prisma.flashcardUsuario.findMany({
             include: {
-                usuario: true,
+                usuario: {
+                    select: { id: true, nome: true, email: true }
+                },
                 flashcard: true
             }
         });
 
         return res.status(200).json(revisoes);
     } catch (erro) {
-        console.error("Erro ao listar revisões:", erro);
+        console.error("ERRO AO LISTAR REVISÕES:", erro);
         return res.status(500).json({
             erro: "Erro interno no servidor ao listar revisões."
         });
@@ -108,7 +133,7 @@ const buscar = async (req, res) => {
 
         return res.status(200).json(registro);
     } catch (erro) {
-        console.error("Erro ao buscar revisão:", erro);
+        console.error("ERRO AO BUSCAR REVISÃO:", erro);
         return res.status(500).json({
             erro: "Erro interno no servidor ao buscar revisão."
         });
@@ -118,7 +143,7 @@ const buscar = async (req, res) => {
 const atualizar = async (req, res) => {
     try {
         const { id } = req.params;
-        const { dataRevisao, nivelDominio, nivelFacilidade } = req.body;
+        const { dataRevisao, nivelDominio, nivelFacilidade } = req.body || {};
 
         if (isNaN(Number(id))) {
             return res.status(400).json({
@@ -140,13 +165,22 @@ const atualizar = async (req, res) => {
 
         if (nivel !== undefined && !validarNivelDominio(nivel)) {
             return res.status(400).json({
-                erro: "O nível de facilidade deve ser um número entre 1 e 5."
+                erro: "O nível de domínio/facilidade deve ser um número inteiro de 1 a 5."
             });
         }
 
         const dadosAtualizacao = {};
         if (nivel !== undefined) dadosAtualizacao.nivelDominio = Number(nivel);
-        if (dataRevisao) dadosAtualizacao.dataRevisao = new Date(dataRevisao);
+
+        if (dataRevisao) {
+            const novaData = new Date(dataRevisao);
+            if (isNaN(novaData.getTime())) {
+                return res.status(400).json({
+                    erro: "Formato de dataRevisao inválido."
+                });
+            }
+            dadosAtualizacao.dataRevisao = novaData;
+        }
 
         const registro = await prisma.flashcardUsuario.update({
             where: { id: Number(id) },
@@ -158,7 +192,7 @@ const atualizar = async (req, res) => {
             registro
         });
     } catch (erro) {
-        console.error("Erro ao atualizar revisão:", erro);
+        console.error("ERRO AO ATUALIZAR REVISÃO:", erro);
         return res.status(500).json({
             erro: "Erro interno no servidor ao atualizar revisão."
         });
@@ -194,7 +228,7 @@ const excluir = async (req, res) => {
             registro
         });
     } catch (erro) {
-        console.error("Erro ao excluir revisão:", erro);
+        console.error("ERRO AO EXCLUIR REVISÃO:", erro);
         return res.status(500).json({
             erro: "Erro interno no servidor ao excluir revisão."
         });

@@ -1,35 +1,48 @@
-const jwt = require("jsonwebtoken");
-const SECRET_KEY = process.env.JWT_SECRET || "sua_chave_secreta_aqui";
+const jsonwebtoken = require("jsonwebtoken");
 
-// Middleware 1: Verificação do Token
-const autenticarToken = (req, res, next) => {
-    const authHeader = req.headers["authorization"];
-    const token = authHeader && authHeader.split(" ")[1]; // Formato: Bearer TOKEN
-
-    if (!token) {
-        return res.status(401).json({ erro: "Acesso negado. Token não fornecido." });
-    }
-
+const validate = (req, res, next) => {
     try {
-        const usuarioPayload = jwt.verify(token, SECRET_KEY);
-        req.usuario = usuarioPayload; // Salva os dados do usuário na requisição
-        next();
-    } catch (erro) {
-        return res.status(403).json({ erro: "Token inválido ou expirado." });
+        const authHeader = req.headers.authorization;
+
+        if (!authHeader) {
+            return res.status(401).json({
+                erro: "Acesso negado. Nenhum token foi fornecido."
+            });
+        }
+
+        const parts = authHeader.split(" ");
+
+        if (parts.length !== 2 || parts[0] !== "Bearer") {
+            return res.status(401).json({
+                erro: "Formato do token inválido. O formato correto é: Bearer <token>."
+            });
+        }
+
+        const token = parts[1];
+        const payload = jsonwebtoken.verify(token, process.env.SECRET_JWT);
+        
+        req.headers['user'] = payload;
+        req.usuario = payload; 
+
+        return next();
+    } catch (err) {
+        if (err.name === "TokenExpiredError") {
+            return res.status(401).json({
+                erro: "Token expirado. Por favor, faça login novamente."
+            });
+        }
+
+        if (err.name === "JsonWebTokenError") {
+            return res.status(401).json({
+                erro: "Token inválido."
+            });
+        }
+
+        console.error("ERRO NO MIDDLEWARE DE AUTENTICAÇÃO:", err);
+        return res.status(500).json({
+            erro: "Erro interno no servidor ao validar autenticação."
+        });
     }
 };
 
-// Middleware 2: Validar Nível de Acesso (Exemplo: apenas 'ADMIN')
-const autorizarNivel = (...tipoPermitidos) => {
-    return (req, res, next) => {
-        if (!req.usuario || !tipoPermitidos.includes(req.usuario.tipo)) {
-            return res.status(403).json({ erro: "Acesso negado. Nível de acesso insuficiente." });
-        }
-        next();
-    };
-};
-
-module.exports = {
-    autenticarToken,
-    autorizarNivel
-};
+module.exports = validate;

@@ -6,16 +6,24 @@ datasource db {
   provider = "mysql"
 }
 
+enum TipoUsuario {
+  ALUNO
+  PROFESSOR
+  ADMIN
+}
+
 model Usuario {
-  id           Int      @id @default(autoincrement())
+  id           Int         @id @default(autoincrement())
   nome         String
-  email        String   @unique
+  email        String      @unique
   senha        String
-  tipo         String   @default("ALUNO")
-  dataCadastro DateTime @default(now())
+  tipo         TipoUsuario @default(ALUNO)
+  dataCadastro DateTime    @default(now())
 
   simulados  Simulado[]
   flashcards FlashcardUsuario[]
+
+  @@map("usuarios")
 }
 
 model Materia {
@@ -24,6 +32,8 @@ model Materia {
   descricao String
 
   conteudos Conteudo[]
+
+  @@map("materias")
 }
 
 model Conteudo {
@@ -38,6 +48,8 @@ model Conteudo {
 
   questoes   Questao[]
   flashcards Flashcard[]
+
+  @@map("conteudos")
 }
 
 model Questao {
@@ -52,6 +64,8 @@ model Questao {
 
   alternativas Alternativa[]
   respostas    Resposta[]
+
+  @@map("questoes")
 }
 
 model Alternativa {
@@ -64,6 +78,8 @@ model Alternativa {
   questao   Questao @relation(fields: [questaoId], references: [id])
 
   respostas Resposta[]
+
+  @@map("alternativas")
 }
 
 model Simulado {
@@ -78,6 +94,8 @@ model Simulado {
   usuario   Usuario @relation(fields: [usuarioId], references: [id])
 
   respostas Resposta[]
+
+  @@map("simulados")
 }
 
 model Resposta {
@@ -92,6 +110,8 @@ model Resposta {
   simulado    Simulado    @relation(fields: [simuladoId], references: [id])
   questao     Questao     @relation(fields: [questaoId], references: [id])
   alternativa Alternativa @relation(fields: [alternativaId], references: [id])
+
+  @@map("respostas")
 }
 
 model Flashcard {
@@ -104,6 +124,8 @@ model Flashcard {
   conteudo   Conteudo @relation(fields: [conteudoId], references: [id])
 
   usuarios FlashcardUsuario[]
+
+  @@map("flashcards")
 }
 
 model FlashcardUsuario {
@@ -116,4 +138,6 @@ model FlashcardUsuario {
 
   usuario   Usuario   @relation(fields: [usuarioId], references: [id])
   flashcard Flashcard @relation(fields: [flashcardId], references: [id])
+
+  @@map("flashcards_usuarios")
 }
