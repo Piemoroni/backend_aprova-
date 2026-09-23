@@ -11,6 +11,7 @@ model Usuario {
   nome         String
   email        String   @unique
   senha        String
+  tipo         String   @default("ALUNO")
   dataCadastro DateTime @default(now())
 
   simulados  Simulado[]

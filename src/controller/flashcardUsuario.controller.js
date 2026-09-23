@@ -1,122 +1,210 @@
 const {
     usuarioExiste,
     flashcardExiste,
-    buscarRegistro
+    validarNivelDominio,
+    buscarPorUsuario,
+    buscarPorId
 } = require("../services/flashcardUsuario.service");
 const prisma = require("../data/prisma");
 
-const registrarEstudo = async (req, res) => {
+const adicionar = async (req, res) => {
     try {
-        const { usuarioId, flashcardId, facilidade, proximaRevisao } = req.body || {};
+        const { usuarioId, flashcardId, dataRevisao, nivelDominio, nivelFacilidade } = req.body;
 
-        if (!usuarioId || isNaN(Number(usuarioId))) {
+        const nivel = nivelDominio !== undefined ? nivelDominio : nivelFacilidade;
+
+        if (!usuarioId || !flashcardId) {
             return res.status(400).json({
-                erro: "O ID do usuário (usuarioId) é obrigatório e deve ser um número."
+                erro: "Os campos usuarioId e flashcardId são obrigatórios."
             });
         }
 
-        if (!flashcardId || isNaN(Number(flashcardId))) {
+        if (!validarNivelDominio(nivel)) {
             return res.status(400).json({
-                erro: "O ID do flashcard (flashcardId) é obrigatório e deve ser um número."
-            });
-        }
-
-        if (facilidade === undefined || facilidade === null || isNaN(Number(facilidade))) {
-            return res.status(400).json({
-                erro: "O nível de facilidade é obrigatório e deve ser um número."
+                erro: "O nível de facilidade é obrigatório e deve ser um número entre 1 e 5."
             });
         }
 
         if (!(await usuarioExiste(usuarioId))) {
             return res.status(404).json({
-                erro: "O usuário informado não existe."
+                erro: "Usuário não encontrado."
             });
         }
 
         if (!(await flashcardExiste(flashcardId))) {
             return res.status(404).json({
-                erro: "O flashcard informado não existe."
+                erro: "Flashcard não encontrado."
             });
         }
 
-        const dataRevisao = proximaRevisao ? new Date(proximaRevisao) : new Date();
-        if (isNaN(dataRevisao.getTime())) {
-            return res.status(400).json({
-                erro: "A data da próxima revisão (proximaRevisao) é inválida."
-            });
-        }
+        const registro = await prisma.flashcardUsuario.create({
+            data: {
+                usuarioId: Number(usuarioId),
+                flashcardId: Number(flashcardId),
+                nivelDominio: Number(nivel),
+                dataRevisao: dataRevisao ? new Date(dataRevisao) : new Date()
+            }
+        });
 
-        const registroExistente = await buscarRegistro(usuarioId, flashcardId);
-
-        let resultado;
-        if (registroExistente) {
-            resultado = await prisma.flashcardUsuario.update({
-                where: { id: registroExistente.id },
-                data: {
-                    facilidade: Number(facilidade),
-                    proximaRevisao: dataRevisao,
-                    ultimaRevisao: new Date()
-                }
-            });
-        } else {
-            resultado = await prisma.flashcardUsuario.create({
-                data: {
-                    usuarioId: Number(usuarioId),
-                    flashcardId: Number(flashcardId),
-                    facilidade: Number(facilidade),
-                    proximaRevisao: dataRevisao,
-                    ultimaRevisao: new Date()
-                }
-            });
-        }
-
-        return res.status(200).json({
-            mensagem: "Estudo do flashcard registrado com sucesso!",
-            registro: resultado
+        return res.status(201).json({
+            mensagem: "Revisão de flashcard registrada com sucesso!",
+            registro
         });
     } catch (erro) {
-        console.error("ERRO DETALHADO AO REGISTRAR ESTUDO DE FLASHCARD:", erro);
+        console.error("Erro ao adicionar revisão:", erro);
         return res.status(500).json({
-            erro: "Erro interno no servidor ao registrar estudo do flashcard."
+            erro: "Erro interno no servidor ao registrar revisão."
         });
     }
 };
 
-const listarPorUsuario = async (req, res) => {
+const listar = async (req, res) => {
     try {
-        const { usuarioId } = req.params;
+        const { usuarioId } = req.query;
 
-        if (isNaN(Number(usuarioId))) {
-            return res.status(400).json({
-                erro: "O ID do usuário deve ser um número válido."
-            });
-        }
-
-        if (!(await usuarioExiste(usuarioId))) {
-            return res.status(404).json({
-                erro: "O usuário informado não existe."
-            });
+        if (usuarioId) {
+            if (!(await usuarioExiste(usuarioId))) {
+                return res.status(404).json({
+                    erro: "Usuário não encontrado."
+                });
+            }
+            const revisoes = await buscarPorUsuario(usuarioId);
+            return res.status(200).json(revisoes);
         }
 
         const revisoes = await prisma.flashcardUsuario.findMany({
-            where: {
-                usuarioId: Number(usuarioId)
-            },
             include: {
+                usuario: true,
                 flashcard: true
             }
         });
 
         return res.status(200).json(revisoes);
     } catch (erro) {
-        console.error("ERRO DETALHADO AO LISTAR REVISÕES DO USUÁRIO:", erro);
+        console.error("Erro ao listar revisões:", erro);
         return res.status(500).json({
             erro: "Erro interno no servidor ao listar revisões."
         });
     }
 };
 
+const buscar = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (isNaN(Number(id))) {
+            return res.status(400).json({
+                erro: "ID de revisão inválido."
+            });
+        }
+
+        const registro = await buscarPorId(id);
+
+        if (!registro) {
+            return res.status(404).json({
+                erro: "Registro de revisão não encontrado."
+            });
+        }
+
+        return res.status(200).json(registro);
+    } catch (erro) {
+        console.error("Erro ao buscar revisão:", erro);
+        return res.status(500).json({
+            erro: "Erro interno no servidor ao buscar revisão."
+        });
+    }
+};
+
+const atualizar = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { dataRevisao, nivelDominio, nivelFacilidade } = req.body;
+
+        if (isNaN(Number(id))) {
+            return res.status(400).json({
+                erro: "ID de revisão inválido."
+            });
+        }
+
+        const registroExiste = await prisma.flashcardUsuario.findUnique({
+            where: { id: Number(id) }
+        });
+
+        if (!registroExiste) {
+            return res.status(404).json({
+                erro: "Registro de revisão não encontrado."
+            });
+        }
+
+        const nivel = nivelDominio !== undefined ? nivelDominio : nivelFacilidade;
+
+        if (nivel !== undefined && !validarNivelDominio(nivel)) {
+            return res.status(400).json({
+                erro: "O nível de facilidade deve ser um número entre 1 e 5."
+            });
+        }
+
+        const dadosAtualizacao = {};
+        if (nivel !== undefined) dadosAtualizacao.nivelDominio = Number(nivel);
+        if (dataRevisao) dadosAtualizacao.dataRevisao = new Date(dataRevisao);
+
+        const registro = await prisma.flashcardUsuario.update({
+            where: { id: Number(id) },
+            data: dadosAtualizacao
+        });
+
+        return res.status(200).json({
+            mensagem: "Revisão atualizada com sucesso!",
+            registro
+        });
+    } catch (erro) {
+        console.error("Erro ao atualizar revisão:", erro);
+        return res.status(500).json({
+            erro: "Erro interno no servidor ao atualizar revisão."
+        });
+    }
+};
+
+const excluir = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (isNaN(Number(id))) {
+            return res.status(400).json({
+                erro: "ID de revisão inválido."
+            });
+        }
+
+        const registroExiste = await prisma.flashcardUsuario.findUnique({
+            where: { id: Number(id) }
+        });
+
+        if (!registroExiste) {
+            return res.status(404).json({
+                erro: "Registro de revisão não encontrado."
+            });
+        }
+
+        const registro = await prisma.flashcardUsuario.delete({
+            where: { id: Number(id) }
+        });
+
+        return res.status(200).json({
+            mensagem: "Registro de revisão removido com sucesso!",
+            registro
+        });
+    } catch (erro) {
+        console.error("Erro ao excluir revisão:", erro);
+        return res.status(500).json({
+            erro: "Erro interno no servidor ao excluir revisão."
+        });
+    }
+};
+
 module.exports = {
-    registrarEstudo,
-    listarPorUsuario
+    adicionar,
+    listar,
+    buscar,
+    atualizar,
+    excluir
 };

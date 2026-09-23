@@ -3,7 +3,7 @@ const prisma = require("../data/prisma");
 
 const adicionar = async (req, res) => {
     try {
-        const { texto, correta, questaoId } = req.body || {};
+        const { texto, correta, ordem, questaoId } = req.body || {};
 
         if (!texto || typeof texto !== "string" || texto.trim() === "") {
             return res.status(400).json({
@@ -14,6 +14,12 @@ const adicionar = async (req, res) => {
         if (typeof correta !== "boolean") {
             return res.status(400).json({
                 erro: "O campo 'correta' é obrigatório e deve ser um valor booleano (true ou false)."
+            });
+        }
+
+        if (!ordem || typeof ordem !== "string" || ordem.trim() === "") {
+            return res.status(400).json({
+                erro: "A ordem da alternativa é obrigatória e deve ser um texto (ex: 'A', 'B', 'C')."
             });
         }
 
@@ -33,6 +39,7 @@ const adicionar = async (req, res) => {
             data: {
                 texto: texto.trim(),
                 correta,
+                ordem: ordem.trim(),
                 questaoId: Number(questaoId)
             }
         });

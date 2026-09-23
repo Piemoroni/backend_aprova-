@@ -8,7 +8,7 @@ const {
     excluir 
 } = require("../controller/alternativa.controller");
 
-router.post("/adicionar", adicionar);
+router.post("/adicionar", adicionar); 
 router.get("/listar/:questaoId", listarPorQuestao);
 router.put("/atualizar/:id", atualizar);
 router.delete("/excluir/:id", excluir);

@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { autenticarToken, autorizarNivel } = require("../middlewares/auth.middleware");
 
 const { 
     adicionar, 
@@ -9,10 +10,10 @@ const {
     excluir 
 } = require("../controller/materia.controller");
 
-router.post("/adicionar", adicionar); 
-router.get("/listar", listar); 
-router.get("/buscar/:id", buscar); 
-router.put("/atualizar/:id", atualizar); 
-router.delete("/excluir/:id", excluir); 
+router.post("/adicionar", autenticarToken, autorizarNivel("ADMIN"), adicionar); 
+router.get("/listar", autenticarToken, listar); 
+router.get("/buscar/:id", autenticarToken, buscar); 
+router.put("/atualizar/:id", autenticarToken, autorizarNivel("ADMIN"), atualizar); 
+router.delete("/excluir/:id", autenticarToken, autorizarNivel("ADMIN"), excluir); 
 
 module.exports = router;

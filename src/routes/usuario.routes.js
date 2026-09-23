@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { autenticarToken, autorizarNivel } = require("../middlewares/auth.middleware");
 
 const { 
     adicionar, 
@@ -12,9 +13,9 @@ const {
 
 router.post("/adicionar", adicionar); 
 router.post("/login", login); 
-router.get("/listar", listar); 
-router.get("/buscar/:id", buscar); 
-router.put("/atualizar/:id", atualizar); 
-router.delete("/excluir/:id", excluir); 
+router.get("/listar", autenticarToken, autorizarNivel("ADMIN"), listar); 
+router.get("/buscar/:id", autenticarToken, buscar); 
+router.put("/atualizar/:id", autenticarToken, atualizar); 
+router.delete("/excluir/:id", autenticarToken, autorizarNivel("ADMIN"), excluir); 
 
 module.exports = router;

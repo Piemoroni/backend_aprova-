@@ -1,109 +1,163 @@
-const { emailDuplicado, validarEmail, validarSenha, gerarHashSenha, compararSenha, possuiDados } = require("../services/usuario.service");
 const prisma = require("../data/prisma");
+const jwt = require("jsonwebtoken");
+
+const SECRET_KEY = process.env.JWT_SECRET || "sua_chave_secreta_aqui";
 
 const adicionar = async (req, res) => {
-    const { nome, email, senha } = req.body;
+    try {
+        const { nome, email, senha, tipo } = req.body;
 
-    if (!validarEmail(email)) {
-        return res.status(400).json({
-            erro: "Formato de e-mail inválido."
-        });
-    }
-
-    if (!validarSenha(senha)) {
-        return res.status(400).json({
-            erro: "A senha deve conter no mínimo 6 caracteres."
-        });
-    }
-
-    if (await emailDuplicado(email)) {
-        return res.status(400).json({
-            erro: "Este e-mail já está cadastrado."
-        });
-    }
-
-    const senhaHash = gerarHashSenha(senha);
-
-    const usuario = await prisma.usuario.create({
-        data: {
-            nome,
-            email,
-            senha: senhaHash
+        if (!nome || !email || !senha) {
+            return res.status(400).json({
+                erro: "Os campos nome, email e senha são obrigatórios."
+            });
         }
-    });
 
-    delete usuario.senha;
+        const usuarioExiste = await prisma.usuario.findUnique({
+            where: { email }
+        });
 
-    res.status(201).json({
-        mensagem: "Usuário cadastrado com sucesso!",
-        usuario
-    });
+        if (usuarioExiste) {
+            return res.status(400).json({
+                erro: "Já existe um usuário cadastrado com este e-mail."
+            });
+        }
+
+        const novoUsuario = await prisma.usuario.create({
+            data: {
+                nome,
+                email,
+                senha,
+                tipo: tipo ? tipo.toUpperCase() : "ALUNO"
+            }
+        });
+
+        delete novoUsuario.senha;
+
+        return res.status(201).json({
+            mensagem: "Usuário cadastrado com sucesso!",
+            usuario: novoUsuario
+        });
+    } catch (erro) {
+        console.error("Erro ao adicionar usuário:", erro);
+        return res.status(500).json({
+            erro: "Erro interno no servidor ao cadastrar usuário."
+        });
+    }
 };
 
 const login = async (req, res) => {
-    const { email, senha } = req.body;
+    try {
+        const { email, senha } = req.body;
 
-    const usuario = await prisma.usuario.findUnique({
-        where: { email }
-    });
+        if (!email || !senha) {
+            return res.status(400).json({
+                erro: "E-mail e senha são obrigatórios."
+            });
+        }
 
-    if (!usuario || !compararSenha(senha, usuario.senha)) {
-        return res.status(401).json({
-            erro: "E-mail ou senha incorretos."
+        const usuario = await prisma.usuario.findUnique({
+            where: { email }
+        });
+
+        if (!usuario || usuario.senha !== senha) {
+            return res.status(401).json({
+                erro: "E-mail ou senha incorretos."
+            });
+        }
+
+        const token = jwt.sign(
+            {
+                id: usuario.id,
+                email: usuario.email,
+                tipo: usuario.tipo
+            },
+            SECRET_KEY,
+            { expiresIn: "8h" }
+        );
+
+        delete usuario.senha;
+
+        return res.status(200).json({
+            mensagem: "Login realizado com sucesso!",
+            usuario,
+            token
+        });
+    } catch (erro) {
+        console.error("Erro ao realizar login:", erro);
+        return res.status(500).json({
+            erro: "Erro interno no servidor ao realizar login."
         });
     }
-
-    delete usuario.senha;
-
-    res.status(200).json({
-        mensagem: "Login realizado com sucesso!",
-        usuario
-    });
 };
 
 const listar = async (req, res) => {
-    const usuarios = await prisma.usuario.findMany({
-        select: {
-            id: true,
-            nome: true,
-            email: true,
-            dataCadastro: true
-        }
-    });
+    try {
+        const usuarios = await prisma.usuario.findMany({
+            select: {
+                id: true,
+                nome: true,
+                email: true,
+                tipo: true,
+                dataCadastro: true
+            }
+        });
 
-    res.status(200).json(usuarios);
+        return res.status(200).json(usuarios);
+    } catch (erro) {
+        console.error("Erro ao listar usuários:", erro);
+        return res.status(500).json({
+            erro: "Erro interno no servidor ao listar usuários."
+        });
+    }
 };
 
 const buscar = async (req, res) => {
-    const { id } = req.params;
+    try {
+        const { id } = req.params;
 
-    const usuario = await prisma.usuario.findUnique({
-        where: {
-            id: Number(id)
-        },
-        select: {
-            id: true,
-            nome: true,
-            email: true,
-            dataCadastro: true,
-            simulados: true,
-            flashcards: true
+        if (isNaN(Number(id))) {
+            return res.status(400).json({
+                erro: "ID de usuário inválido."
+            });
         }
-    });
 
-    if (!usuario) {
-        return res.status(404).json({
-            erro: "Usuário não encontrado."
+        const usuario = await prisma.usuario.findUnique({
+            where: { id: Number(id) },
+            select: {
+                id: true,
+                nome: true,
+                email: true,
+                tipo: true,
+                dataCadastro: true
+            }
+        });
+
+        if (!usuario) {
+            return res.status(404).json({
+                erro: "Usuário não encontrado."
+            });
+        }
+
+        return res.status(200).json(usuario);
+    } catch (erro) {
+        console.error("Erro ao buscar usuário:", erro);
+        return res.status(500).json({
+            erro: "Erro interno no servidor ao buscar usuário."
         });
     }
-
-    res.status(200).json(usuario);
 };
 
 const atualizar = async (req, res) => {
     try {
         const { id } = req.params;
-        const { email, senha, ...outrosDados } = req.body;
+        const { nome, email, senha, tipo } = req.body;
+
+        if (isNaN(Number(id))) {
+            return res.status(400).json({
+                erro: "ID de usuário inválido."
+            });
+        }
 
         const usuarioExiste = await prisma.usuario.findUnique({
             where: { id: Number(id) }
@@ -115,48 +169,27 @@ const atualizar = async (req, res) => {
             });
         }
 
-        if (email) {
-            if (!validarEmail(email)) {
-                return res.status(400).json({
-                    erro: "Formato de e-mail inválido."
-                });
-            }
+        const dadosAtualizacao = {};
+        if (nome) dadosAtualizacao.nome = nome;
+        if (email) dadosAtualizacao.email = email;
+        if (senha) dadosAtualizacao.senha = senha;
+        if (tipo) dadosAtualizacao.tipo = tipo.toUpperCase();
 
-            const emailEmUso = await prisma.usuario.findFirst({
-                where: {
-                    email,
-                    NOT: { id: Number(id) }
-                }
-            });
-
-            if (emailEmUso) {
-                return res.status(400).json({
-                    erro: "Este e-mail já está em uso por outro usuário."
-                });
-            }
-
-            outrosDados.email = email;
-        }
-
-        if (senha) {
-            if (!validarSenha(senha)) {
-                return res.status(400).json({
-                    erro: "A nova senha deve conter no mínimo 6 caracteres."
-                });
-            }
-            outrosDados.senha = gerarHashSenha(senha);
-        }
-
-        const usuario = await prisma.usuario.update({
+        const usuarioAtualizado = await prisma.usuario.update({
             where: { id: Number(id) },
-            data: outrosDados
+            data: dadosAtualizacao,
+            select: {
+                id: true,
+                nome: true,
+                email: true,
+                tipo: true,
+                dataCadastro: true
+            }
         });
-
-        delete usuario.senha;
 
         return res.status(200).json({
             mensagem: "Usuário atualizado com sucesso!",
-            usuario
+            usuario: usuarioAtualizado
         });
     } catch (erro) {
         console.error("Erro ao atualizar usuário:", erro);
@@ -170,6 +203,12 @@ const excluir = async (req, res) => {
     try {
         const { id } = req.params;
 
+        if (isNaN(Number(id))) {
+            return res.status(400).json({
+                erro: "ID de usuário inválido."
+            });
+        }
+
         const usuarioExiste = await prisma.usuario.findUnique({
             where: { id: Number(id) }
         });
@@ -180,23 +219,12 @@ const excluir = async (req, res) => {
             });
         }
 
-        if (await possuiDados(id)) {
-            return res.status(400).json({
-                erro: "Não é possível excluir o usuário pois existem simulados ou flashcards vinculados."
-            });
-        }
-
-        const usuario = await prisma.usuario.delete({
-            where: {
-                id: Number(id)
-            }
+        await prisma.usuario.delete({
+            where: { id: Number(id) }
         });
 
-        delete usuario.senha;
-
         return res.status(200).json({
-            mensagem: "Usuário removido com sucesso!",
-            usuario
+            mensagem: "Usuário removido com sucesso!"
         });
     } catch (erro) {
         console.error("Erro ao excluir usuário:", erro);

@@ -14,6 +14,7 @@ const conteudoRoutes = require('./src/routes/conteudo.routes');
 const questaoRoutes = require('./src/routes/questao.routes');
 const alternativaRoutes = require('./src/routes/alternativa.routes');
 const flashcardUsuarioRoutes = require('./src/routes/flashcardUsuario.routes');
+const respostaRoutes = require('./src/routes/resposta.routes');
 
 app.use('/flashcards', flashcardRoutes);
 app.use('/materia', materiaRoutes);
@@ -23,6 +24,7 @@ app.use('/conteudo', conteudoRoutes);
 app.use('/questao', questaoRoutes);
 app.use('/alternativa', alternativaRoutes);
 app.use('/flashcardUsuario', flashcardUsuarioRoutes);
+app.use('/resposta', respostaRoutes);
 
 const PORT = process.env.PORT || 3000;
 
