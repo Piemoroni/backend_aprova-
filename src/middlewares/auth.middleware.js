@@ -1,6 +1,6 @@
 const jsonwebtoken = require("jsonwebtoken");
 
-const validate = (req, res, next) => {
+const autenticarToken = (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
 
@@ -45,4 +45,34 @@ const validate = (req, res, next) => {
     }
 };
 
-module.exports = validate;
+const autorizarNivel = (...niveisPermitidos) => {
+    return (req, res, next) => {
+        try {
+            if (!req.usuario) {
+                return res.status(401).json({
+                    erro: "Usuário não autenticado."
+                });
+            }
+
+            const nivelUsuario = req.usuario.tipo || req.usuario.nivel || req.usuario.role;
+
+            if (!niveisPermitidos.includes(nivelUsuario)) {
+                return res.status(403).json({
+                    erro: "Acesso negado. Você não tem permissão para realizar esta ação."
+                });
+            }
+
+            return next();
+        } catch (err) {
+            console.error("ERRO NO MIDDLEWARE DE AUTORIZAÇÃO:", err);
+            return res.status(500).json({
+                erro: "Erro interno ao verificar permissões de acesso."
+            });
+        }
+    };
+};
+
+module.exports = {
+    autenticarToken,
+    autorizarNivel
+};

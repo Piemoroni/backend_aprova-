@@ -1,4 +1,9 @@
-const { flashcardDuplicado, conteudoExiste, validarOrdem, possuiUsuarios } = require("../services/flashcard.service");
+const { 
+    flashcardDuplicado, 
+    conteudoExiste, 
+    validarOrdem, 
+    possuiUsuarios 
+} = require("../services/flashcard.service");
 const prisma = require("../data/prisma");
 
 const adicionar = async (req, res) => {
