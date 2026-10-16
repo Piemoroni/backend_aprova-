@@ -1,8 +1,6 @@
 const express = require("express");
 const router = express.Router();
 
-const { autenticarToken } = require("../middlewares/auth.middleware");
-
 const { 
     adicionar, 
     listar, 
@@ -10,8 +8,6 @@ const {
     atualizar, 
     excluir 
 } = require("../controller/simulado.controller");
-
-router.use(autenticarToken);
 
 router.post("/adicionar", adicionar);
 router.get("/listar", listar);

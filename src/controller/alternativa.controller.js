@@ -1,4 +1,4 @@
-const { questaoExiste, alternativaExiste, possuiRespostas,ordemDuplicadaNaQuestao,questaoJaTemCorreta} = require("../services/alternativa.service");
+const { questaoExiste, alternativaExiste, possuiRespostas, ordemDuplicadaNaQuestao, questaoJaTemCorreta } = require("../services/alternativa.service");
 const prisma = require("../data/prisma");
 
 const adicionar = async (req, res) => {

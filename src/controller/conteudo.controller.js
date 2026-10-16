@@ -1,4 +1,4 @@
-const { materiaExiste, conteudoExiste, conteudoDuplicadoNaMateria,possuiQuestoesOuFlashcards } = require("../services/conteudo.service");
+const { materiaExiste, conteudoExiste, conteudoDuplicadoNaMateria, possuiQuestoesOuFlashcards } = require("../services/conteudo.service");
 const prisma = require("../data/prisma");
 
 const adicionar = async (req, res) => {

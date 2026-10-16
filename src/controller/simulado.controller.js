@@ -3,9 +3,13 @@ const prisma = require("../data/prisma");
 
 const adicionar = async (req, res) => {
     try {
-        const { comTempo, tempoTotalMin, notaObjetiva, dataRealizacao } = req.body;
-        
-        const usuarioId = req.usuario.id;
+        const { usuarioId, comTempo, tempoTotalMin, notaObjetiva, dataRealizacao } = req.body;
+
+        if (!usuarioId || isNaN(Number(usuarioId))) {
+            return res.status(400).json({
+                erro: "O ID do usuário (usuarioId) é obrigatório."
+            });
+        }
 
         if (!(await usuarioExiste(usuarioId))) {
             return res.status(404).json({
@@ -52,15 +56,7 @@ const adicionar = async (req, res) => {
 
 const listar = async (req, res) => {
     try {
-        const usuarioLogado = req.usuario;
-        
-        const onde = {};
-        if (usuarioLogado.tipo !== "ADMIN" && usuarioLogado.tipo !== "PROFESSOR") {
-            onde.usuarioId = usuarioLogado.id;
-        }
-
         const simulados = await prisma.simulado.findMany({
-            where: onde,
             include: {
                 usuario: {
                     select: {
@@ -85,7 +81,6 @@ const listar = async (req, res) => {
 const buscar = async (req, res) => {
     try {
         const { id } = req.params;
-        const usuarioLogado = req.usuario;
 
         if (isNaN(Number(id))) {
             return res.status(400).json({ erro: "ID de simulado inválido." });
@@ -111,16 +106,6 @@ const buscar = async (req, res) => {
             });
         }
 
-        if (
-            usuarioLogado.tipo !== "ADMIN" && 
-            usuarioLogado.tipo !== "PROFESSOR" && 
-            simulado.usuarioId !== usuarioLogado.id
-        ) {
-            return res.status(403).json({
-                erro: "Você não tem permissão para acessar este simulado."
-            });
-        }
-
         return res.status(200).json(simulado);
     } catch (erro) {
         console.error("Erro ao buscar simulado:", erro);
@@ -133,7 +118,6 @@ const buscar = async (req, res) => {
 const atualizar = async (req, res) => {
     try {
         const { id } = req.params;
-        const usuarioLogado = req.usuario;
 
         if (isNaN(Number(id))) {
             return res.status(400).json({ erro: "ID de simulado inválido." });
@@ -146,12 +130,6 @@ const atualizar = async (req, res) => {
         if (!simuladoExiste) {
             return res.status(404).json({
                 erro: "Simulado não encontrado."
-            });
-        }
-
-        if (usuarioLogado.tipo !== "ADMIN" && simuladoExiste.usuarioId !== usuarioLogado.id) {
-            return res.status(403).json({
-                erro: "Você não tem permissão para atualizar este simulado."
             });
         }
 
@@ -175,7 +153,6 @@ const atualizar = async (req, res) => {
 const excluir = async (req, res) => {
     try {
         const { id } = req.params;
-        const usuarioLogado = req.usuario;
 
         if (isNaN(Number(id))) {
             return res.status(400).json({ erro: "ID de simulado inválido." });
@@ -188,12 +165,6 @@ const excluir = async (req, res) => {
         if (!simuladoExiste) {
             return res.status(404).json({
                 erro: "Simulado não encontrado."
-            });
-        }
-
-        if (usuarioLogado.tipo !== "ADMIN" && simuladoExiste.usuarioId !== usuarioLogado.id) {
-            return res.status(403).json({
-                erro: "Você não tem permissão para excluir este simulado."
             });
         }
 

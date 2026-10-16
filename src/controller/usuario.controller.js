@@ -1,8 +1,5 @@
 const prisma = require("../data/prisma");
-const jwt = require("jsonwebtoken");
 const usuarioService = require("../services/usuario.service");
-
-const SECRET_KEY = process.env.JWT_SECRET || "sua_chave_secreta_aqui";
 
 const adicionar = async (req, res) => {
     try {
@@ -69,60 +66,6 @@ const adicionar = async (req, res) => {
     }
 };
 
-const login = async (req, res) => {
-    try {
-        const { email, senha } = req.body;
-
-        if (!email || !senha) {
-            return res.status(400).json({
-                erro: "E-mail e senha são obrigatórios."
-            });
-        }
-
-        const usuario = await prisma.usuario.findUnique({
-            where: { email }
-        });
-
-        if (!usuario) {
-            return res.status(401).json({
-                erro: "E-mail ou senha incorretos."
-            });
-        }
-
-        // Compara a senha informada usando o service (bcrypt)
-        const senhaValida = await usuarioService.compararSenha(senha, usuario.senha);
-
-        if (!senhaValida) {
-            return res.status(401).json({
-                erro: "E-mail ou senha incorretos."
-            });
-        }
-
-        const token = jwt.sign(
-            {
-                id: usuario.id,
-                email: usuario.email,
-                tipo: usuario.tipo
-            },
-            SECRET_KEY,
-            { expiresIn: "8h" }
-        );
-
-        const { senha: _, ...usuarioSemSenha } = usuario;
-
-        return res.status(200).json({
-            mensagem: "Login realizado com sucesso!",
-            usuario: usuarioSemSenha,
-            token
-        });
-    } catch (erro) {
-        console.error("Erro ao realizar login:", erro);
-        return res.status(500).json({
-            erro: "Erro interno no servidor ao realizar login."
-        });
-    }
-};
-
 const listar = async (req, res) => {
     try {
         const usuarios = await prisma.usuario.findMany({
@@ -147,17 +90,10 @@ const listar = async (req, res) => {
 const buscar = async (req, res) => {
     try {
         const { id } = req.params;
-        const usuarioLogado = req.usuario;
 
         if (isNaN(Number(id))) {
             return res.status(400).json({
                 erro: "ID de usuário inválido."
-            });
-        }
-
-        if (usuarioLogado.tipo !== "ADMIN" && usuarioLogado.id !== Number(id)) {
-            return res.status(403).json({
-                erro: "Você não tem permissão para acessar os dados deste usuário."
             });
         }
 
@@ -191,17 +127,10 @@ const atualizar = async (req, res) => {
     try {
         const { id } = req.params;
         const { nome, email, senha, tipo } = req.body;
-        const usuarioLogado = req.usuario;
 
         if (isNaN(Number(id))) {
             return res.status(400).json({
                 erro: "ID de usuário inválido."
-            });
-        }
-
-        if (usuarioLogado.tipo !== "ADMIN" && usuarioLogado.id !== Number(id)) {
-            return res.status(403).json({
-                erro: "Você não tem permissão para atualizar este usuário."
             });
         }
 
@@ -237,11 +166,6 @@ const atualizar = async (req, res) => {
         }
 
         if (tipo) {
-            if (usuarioLogado.tipo !== "ADMIN") {
-                return res.status(403).json({
-                    erro: "Apenas administradores podem alterar o tipo de usuário."
-                });
-            }
             if (!usuarioService.validarTipo(tipo)) {
                 return res.status(400).json({ erro: "Tipo de usuário inválido." });
             }
@@ -292,7 +216,6 @@ const excluir = async (req, res) => {
             });
         }
 
-        // Verifica no service se o usuário possui dados vinculados (simulados/flashcards)
         const temDados = await usuarioService.possuiDados(id);
         if (temDados) {
             return res.status(400).json({
@@ -317,7 +240,6 @@ const excluir = async (req, res) => {
 
 module.exports = {
     adicionar,
-    login,
     listar,
     buscar,
     atualizar,

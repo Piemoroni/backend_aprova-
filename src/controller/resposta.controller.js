@@ -4,7 +4,6 @@ const prisma = require("../data/prisma");
 const adicionar = async (req, res) => {
     try {
         const { simuladoId, questaoId, alternativaId } = req.body;
-        const usuarioLogado = req.usuario;
 
         if (!simuladoId || !questaoId || !alternativaId) {
             return res.status(400).json({
@@ -19,12 +18,6 @@ const adicionar = async (req, res) => {
         if (!simulado) {
             return res.status(404).json({
                 erro: "Simulado não encontrado."
-            });
-        }
-
-        if (usuarioLogado.tipo !== "ADMIN" && simulado.usuarioId !== usuarioLogado.id) {
-            return res.status(403).json({
-                erro: "Você não tem permissão para responder a este simulado."
             });
         }
 
@@ -77,17 +70,7 @@ const adicionar = async (req, res) => {
 
 const listar = async (req, res) => {
     try {
-        const usuarioLogado = req.usuario;
-
-        const onde = {};
-        if (usuarioLogado.tipo !== "ADMIN" && usuarioLogado.tipo !== "PROFESSOR") {
-            onde.simulado = {
-                usuarioId: usuarioLogado.id
-            };
-        }
-
         const respostas = await prisma.resposta.findMany({
-            where: onde,
             include: {
                 simulado: true,
                 questao: true,
@@ -107,7 +90,6 @@ const listar = async (req, res) => {
 const buscar = async (req, res) => {
     try {
         const { id } = req.params;
-        const usuarioLogado = req.usuario;
 
         if (isNaN(Number(id))) {
             return res.status(400).json({ erro: "ID de resposta inválido." });
@@ -128,16 +110,6 @@ const buscar = async (req, res) => {
             });
         }
 
-        if (
-            usuarioLogado.tipo !== "ADMIN" &&
-            usuarioLogado.tipo !== "PROFESSOR" &&
-            resposta.simulado.usuarioId !== usuarioLogado.id
-        ) {
-            return res.status(403).json({
-                erro: "Você não tem permissão para visualizar esta resposta."
-            });
-        }
-
         return res.status(200).json(resposta);
     } catch (erro) {
         console.error("Erro ao buscar resposta:", erro);
@@ -151,7 +123,6 @@ const atualizar = async (req, res) => {
     try {
         const { id } = req.params;
         const { alternativaId } = req.body;
-        const usuarioLogado = req.usuario;
 
         if (isNaN(Number(id))) {
             return res.status(400).json({ erro: "ID de resposta inválido." });
@@ -165,12 +136,6 @@ const atualizar = async (req, res) => {
         if (!respostaExiste) {
             return res.status(404).json({
                 erro: "Resposta não encontrada."
-            });
-        }
-
-        if (usuarioLogado.tipo !== "ADMIN" && respostaExiste.simulado.usuarioId !== usuarioLogado.id) {
-            return res.status(403).json({
-                erro: "Você não tem permissão para alterar esta resposta."
             });
         }
 
@@ -217,7 +182,6 @@ const atualizar = async (req, res) => {
 const excluir = async (req, res) => {
     try {
         const { id } = req.params;
-        const usuarioLogado = req.usuario;
 
         if (isNaN(Number(id))) {
             return res.status(400).json({ erro: "ID de resposta inválido." });
@@ -231,12 +195,6 @@ const excluir = async (req, res) => {
         if (!respostaExiste) {
             return res.status(404).json({
                 erro: "Resposta não encontrada."
-            });
-        }
-
-        if (usuarioLogado.tipo !== "ADMIN" && respostaExiste.simulado.usuarioId !== usuarioLogado.id) {
-            return res.status(403).json({
-                erro: "Você não tem permissão para excluir esta resposta."
             });
         }
 
